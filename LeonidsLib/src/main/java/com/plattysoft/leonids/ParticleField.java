@@ -1,11 +1,11 @@
 package com.plattysoft.leonids;
 
-import java.util.ArrayList;
-
 import android.content.Context;
 import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.View;
+
+import java.util.ArrayList;
 
 class ParticleField extends View {
 
@@ -33,7 +33,10 @@ class ParticleField extends View {
 		// Draw all the particles
 		synchronized (mParticles) {
 			for (int i = 0; i < mParticles.size(); i++) {
-				mParticles.get(i).draw(canvas);
+				Particle particle = mParticles.get(i);
+				if (particle != null) {
+					particle.draw(canvas);
+				}
 			}
 		}
 	}

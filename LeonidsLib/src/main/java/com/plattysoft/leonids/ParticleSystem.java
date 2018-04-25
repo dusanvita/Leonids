@@ -5,6 +5,7 @@ import android.animation.Animator.AnimatorListener;
 import android.animation.ValueAnimator;
 import android.animation.ValueAnimator.AnimatorUpdateListener;
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.drawable.AnimationDrawable;
@@ -22,8 +23,8 @@ import com.plattysoft.leonids.initializers.ParticleInitializer;
 import com.plattysoft.leonids.initializers.RotationInitializer;
 import com.plattysoft.leonids.initializers.RotationSpeedInitializer;
 import com.plattysoft.leonids.initializers.ScaleInitializer;
-import com.plattysoft.leonids.initializers.SpeeddByComponentsInitializer;
 import com.plattysoft.leonids.initializers.SpeedModuleAndRangeInitializer;
+import com.plattysoft.leonids.initializers.SpeeddByComponentsInitializer;
 import com.plattysoft.leonids.modifiers.AlphaModifier;
 import com.plattysoft.leonids.modifiers.ParticleModifier;
 
@@ -96,7 +97,7 @@ public class ParticleSystem {
 		mMaxParticles = maxParticles;
 		// Create the particles
 
-		mParticles = new ArrayList<>();
+		mParticles = new ArrayList<>(maxParticles);
 		mTimeToLive = timeToLive;
 
 		DisplayMetrics displayMetrics = parentView.getContext().getResources().getDisplayMetrics();
@@ -141,6 +142,55 @@ public class ParticleSystem {
 	/**
 	 * Creates a particle system with the given parameters
 	 *
+	 * When multiple drawables are passed, they are distributed equally among the total particles
+	 *
+	 * @param parentView The parent view group
+	 * @param drawables The drawable to use as a particle
+	 * @param maxParticles The maximum number of particles
+	 * @param timeToLive The time to live for the particles
+	 */
+	public ParticleSystem(ViewGroup parentView, int maxParticles, Drawable[] drawables, long timeToLive) {
+		this(parentView, maxParticles, timeToLive);
+
+		if (drawables != null) {
+
+			int particlesPerDrawable = Math.round(mMaxParticles / drawables.length);
+
+			for (int i = 0; i < drawables.length; i++) {
+
+				int step = i + 1;
+
+				Drawable drawable = drawables[i];
+
+				if (drawable instanceof AnimationDrawable) {
+					AnimationDrawable animation = (AnimationDrawable) drawable;
+					for (int j=0, index=i; j < particlesPerDrawable; j++, index+=step) {
+						mParticles.add(index, new AnimatedParticle(animation));
+					}
+				}
+				else {
+					Bitmap bitmap = null;
+					if (drawable instanceof BitmapDrawable) {
+						bitmap = ((BitmapDrawable) drawable).getBitmap();
+					}
+					else {
+						bitmap = Bitmap.createBitmap(drawable.getIntrinsicWidth(),
+								drawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+						Canvas canvas = new Canvas(bitmap);
+						drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
+						drawable.draw(canvas);
+					}
+					for (int j=0, index=i; j < particlesPerDrawable; j++, index+=step) {
+						mParticles.add(index, new Particle(bitmap));
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Creates a particle system with the given parameters
+	 *
 	 * @param a The parent activity
 	 * @param maxParticles The maximum number of particles
 	 * @param drawableRedId The drawable resource to use as particle (supports Bitmaps and Animations)
@@ -148,6 +198,17 @@ public class ParticleSystem {
 	 */
 	public ParticleSystem(Activity a, int maxParticles, int drawableRedId, long timeToLive) {
 		this(a, maxParticles, a.getResources().getDrawable(drawableRedId), timeToLive, android.R.id.content);
+	}
+	/**
+	 * Creates a particle system with the given parameters
+	 *
+	 * @param a The parent activity
+	 * @param maxParticles The maximum number of particles
+	 * @param drawableRedIds The drawable resources to use as particles (supports Bitmaps and Animations)
+	 * @param timeToLive The time to live for the particles
+	 */
+	public ParticleSystem(Activity a, int maxParticles, int[] drawableRedIds, long timeToLive) {
+		this(a, maxParticles, loadDrawables(a, drawableRedIds), timeToLive, android.R.id.content);
 	}
 
     /**
@@ -162,6 +223,18 @@ public class ParticleSystem {
     public ParticleSystem(Activity a, int maxParticles, int drawableRedId, long timeToLive, int parentViewId) {
         this(a, maxParticles, a.getResources().getDrawable(drawableRedId), timeToLive, parentViewId);
     }
+	/**
+	 * Creates a particle system with the given parameters
+	 *
+	 * @param a The parent activity
+	 * @param maxParticles The maximum number of particles
+	 * @param drawableResIds The drawable resource to use as particle (supports Bitmaps and Animations)
+	 * @param timeToLive The time to live for the particles
+	 * @param parentViewId The view Id for the parent of the particle system
+	 */
+	public ParticleSystem(Activity a, int maxParticles, int[] drawableResIds, long timeToLive, int parentViewId) {
+		this(a, maxParticles, loadDrawables(a, drawableResIds), timeToLive, parentViewId);
+	}
 
     /**
      * Utility constructor that receives a Drawable
@@ -179,12 +252,36 @@ public class ParticleSystem {
 	 *
 	 * @param a The parent activity
 	 * @param maxParticles The maximum number of particles
+	 * @param drawables The drawables to use as particles (supports Bitmaps and Animations)
+	 * @param timeToLive The time to live for the particles
+	 */
+	public ParticleSystem(Activity a, int maxParticles, Drawable[] drawables, long timeToLive) {
+		this(a, maxParticles, drawables, timeToLive, android.R.id.content);
+	}
+	/**
+	 * Utility constructor that receives a Drawable
+	 *
+	 * @param a The parent activity
+	 * @param maxParticles The maximum number of particles
 	 * @param drawable The drawable to use as particle (supports Bitmaps and Animations)
 	 * @param timeToLive The time to live for the particles
      * @param parentViewId The view Id for the parent of the particle system
 	 */
 	public ParticleSystem(Activity a, int maxParticles, Drawable drawable, long timeToLive, int parentViewId) {
 		this((ViewGroup) a.findViewById(parentViewId), maxParticles, drawable, timeToLive);
+	}
+
+	/**
+	 * Utility constructor that receives a Drawable
+	 *
+	 * @param a The parent activity
+	 * @param maxParticles The maximum number of particles
+	 * @param drawables The drawables to use as particles (supports Bitmaps and Animations)
+	 * @param timeToLive The time to live for the particles
+	 * @param parentViewId The view Id for the parent of the particle system
+	 */
+	public ParticleSystem(Activity a, int maxParticles, Drawable[] drawables, long timeToLive, int parentViewId) {
+		this((ViewGroup) a.findViewById(parentViewId), maxParticles, drawables, timeToLive);
 	}
 
 	public float dpToPx(float dp) {
@@ -748,5 +845,16 @@ public class ParticleSystem {
 		for (int i = 1; i <= framesCount; i++) {
 			onUpdate(frameTimeInMs * i + 1);
 		}
+	}
+
+	private static Drawable[] loadDrawables(Context context, int[] drawableResIds) {
+		Drawable[] drawables = null;
+		if (drawableResIds != null) {
+			drawables = new Drawable[drawableResIds.length];
+			for (int i = 0; i < drawableResIds.length; i++) {
+				drawables[i] = context.getResources().getDrawable(drawableResIds[i]);
+			}
+		}
+		return drawables;
 	}
 }
